@@ -1,248 +1,230 @@
 'use strict';
 
-// 글로벌 그래픽스 및 기구학 변수 정의
 let scene, camera, renderer;
-let robotGroup; // 로봇 바디 전체 탑노드
-let joints = {}; // 실시간 트래킹용 관절 딕셔너리
+let robotGroup; 
+let joints = {}; 
 
 let activeMotion = 'walk';
 let simulationSpeed = 1.0;
 let clock = new THREE.Clock();
 
-// UI 통제용 DOM 선택자
+// 카메라 구면좌표계 드래그 알고리즘 전역 상태 매개변수
+let camTheta = Math.PI / 3, camPhi = Math.PI / 2.5, camRadius = 11;
+let targetLookAt = new THREE.Vector3(0, 0, 0);
+
 const container = document.getElementById('canvas3dContainer');
 const speedSlider = document.getElementById('speedSlider');
 const speedVal = document.getElementById('speedVal');
 
-init3DEngine();
-buildHumanoidRobot();
-bindUserInterface();
-animateLoop();
+// 시스템 이니셜라이징 부팅 단계
+init3DCore();
+buildHumanoidSkeleton();
+bindUIEvents();
+executeRenderLoop();
 
-// 1. 가상 3차원 물리 스페이스 및 카메라 렌더러 부팅
-function init3DEngine() {
+function init3DCore() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x040711);
-    // 우주 기지 공간 느낌의 보라색 안개 배치
-    scene.fog = new THREE.FogExp2(0x040711, 0.025);
 
-    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-    // 최초 구동 시 얼짱각도 스태틱 카메라 뷰 설정
-    camera.position.set(0, 5, 12);
+    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 500);
+    updateCameraPosition();
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.setPixelRatio(window.devicePixelRatio);
     container.appendChild(renderer.domElement);
 
-    // 공학 데이터 판독을 위한 계측선 격자(Grid) 및 바닥 레이저 시각화
-    const gridHelper = new THREE.GridHelper(30, 30, 0x38bdf8, 0x1e293b);
-    gridHelper.position.y = -3;
-    scene.add(gridHelper);
+    // 하단 데이터 검측 레이아웃 그리드선 설치
+    const grid = new THREE.GridHelper(24, 24, 0x38bdf8, 0x1e293b);
+    grid.position.y = -2.5;
+    scene.add(grid);
 
-    // 입체 명암 가독성을 위한 인더스트리얼 듀얼 조명 시스템
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-    scene.add(ambientLight);
+    // 관제실 하이테크 인더스트리얼 광원 밸런싱
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
     
-    const dirLight1 = new THREE.DirectionalLight(0x38bdf8, 0.8);
-    dirLight1.position.set(10, 20, 10);
-    scene.add(dirLight1);
+    const light1 = new THREE.DirectionalLight(0x38bdf8, 0.7);
+    light1.position.set(5, 15, 5);
+    scene.add(light1);
 
-    const dirLight2 = new THREE.DirectionalLight(0xa855f7, 0.5);
-    dirLight2.position.set(-10, 5, -10);
-    scene.add(dirLight2);
+    const light2 = new THREE.DirectionalLight(0xa855f7, 0.4);
+    light2.position.set(-5, 5, -5);
+    scene.add(light2);
 
-    // 간단하고 직관적인 궤도 회전 인터랙션 캡슐화 알고리즘 (Orbit Control 로직 직접 구현)
+    // [완벽한 독립 구현] OrbitControls 라이브러리 없이 네이티브 드래그 시점 엔진 구동
     let isDragging = false;
-    let prevMouseX = 0, prevMouseY = 0;
-    let camTheta = Math.PI / 2, camPhi = Math.PI / 2, camRadius = 12;
+    let prevX = 0, prevY = 0;
 
     container.addEventListener('mousedown', (e) => {
         isDragging = true;
-        prevMouseX = e.clientX;
-        prevMouseY = e.clientY;
+        prevX = e.clientX;
+        prevY = e.clientY;
     });
 
     window.addEventListener('mousemove', (e) => {
         if (!isDragging) return;
-        let deltaX = e.clientX - prevMouseX;
-        let deltaY = e.clientY - prevMouseY;
+        let dX = e.clientX - prevX;
+        let dY = e.clientY - prevY;
 
-        camTheta -= deltaX * 0.005;
-        camPhi -= deltaY * 0.005;
-        camPhi = Math.max(0.1, Math.min(Math.PI - 0.1, camPhi)); // 뷰포트 뒤집힘 방지 가드
+        camTheta -= dX * 0.007;
+        camPhi -= dY * 0.007;
+        camPhi = Math.max(0.1, Math.min(Math.PI - 0.1, camPhi));
 
-        prevMouseX = e.clientX;
-        prevMouseY = e.clientY;
-
-        // 구면좌표계를 카테시안 직교좌표계로 실시간 매핑 연산
-        camera.position.x = camRadius * Math.sin(camPhi) * Math.sin(camTheta);
-        camera.position.y = camRadius * Math.cos(camPhi) + 1; // 중심 높이 오프셋
-        camera.position.z = camRadius * Math.sin(camPhi) * Math.cos(camTheta);
-        camera.lookAt(0, 1, 0);
+        prevX = e.clientX;
+        prevY = e.clientY;
+        updateCameraPosition();
     });
 
     window.addEventListener('mouseup', () => isDragging = false);
-    window.addEventListener('resize', onWindowResize);
+    window.addEventListener('resize', handleResize);
 }
 
-// 2. 3D 기계 부품 메시 팩토리 및 구조적 다관절 로봇 조립
-function buildHumanoidRobot() {
+function updateCameraPosition() {
+    camera.position.x = camRadius * Math.sin(camPhi) * Math.sin(camTheta) + targetLookAt.x;
+    camera.position.y = camRadius * Math.cos(camPhi) + targetLookAt.y;
+    camera.position.z = camRadius * Math.sin(camPhi) * Math.cos(camTheta) + targetLookAt.z;
+    camera.lookAt(targetLookAt);
+}
+
+function buildHumanoidSkeleton() {
     robotGroup = new THREE.Group();
     scene.add(robotGroup);
 
-    // 공학적 사이버 질감 메테리얼 로드
-    const armorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.2, metalness: 0.8 });
-    const innerJointMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.4, emissive: 0x0284c7 });
+    const armorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.2, metalness: 0.7 });
 
-    // 골반/몸체 베이스 (Torso Base)
-    const torsoGeo = new THREE.CylinderGeometry(1.2, 0.8, 2.2, 6);
+    // 몸체 뼈대 빌드 (Torso Frame)
+    const torsoGeo = new THREE.CylinderGeometry(1.0, 0.7, 2.0, 6);
     const torso = new THREE.Mesh(torsoGeo, armorMat);
-    torso.position.y = 1;
+    torso.position.y = 0.8;
     robotGroup.add(torso);
 
-    // 머리 파트 (Head Unit)
-    const headGeo = new THREE.BoxGeometry(0.7, 0.7, 0.7);
-    const head = new THREE.Mesh(headGeo, armorMat);
-    head.position.set(0, 1.6, 0);
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), armorMat);
+    head.position.set(0, 1.4, 0);
     torso.add(head);
 
-    // [서보모터 링크 결합 패키지 함수] 상하단 관절 트리 종속성 구조 빌드
-    function createLimbs(name, sideX, startY) {
-        const jointGroup = new THREE.Group();
-        jointGroup.position.set(sideX, startY, 0);
-        torso.add(jointGroup);
+    // 사지 링크 어셈블리 재귀 구조화 빌더 함수
+    function attachLimb(name, ox, oy) {
+        const rootJoint = new THREE.Group();
+        rootJoint.position.set(ox, oy, 0);
+        torso.add(rootJoint);
 
-        const uLinkGeo = new THREE.CylinderGeometry(0.2, 0.15, 1.2, 8);
-        uLinkGeo.translate(0, -0.6, 0); // 회전 중심축 하방 조정
-        const upperLink = new THREE.Mesh(uLinkGeo, armorMat);
-        jointGroup.add(upperLink);
+        const uLink = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.14, 1.0, 8), armorMat);
+        uLink.geometry.translate(0, -0.5, 0);
+        rootJoint.add(uLink);
 
-        const subJoint = new THREE.Group();
-        subJoint.position.set(0, -1.2, 0);
-        upperLink.add(subJoint);
+        const midJoint = new THREE.Group();
+        midJoint.position.set(0, -1.0, 0);
+        uLink.add(midJoint);
 
-        const lLinkGeo = new THREE.CylinderGeometry(0.15, 0.1, 1.2, 8);
-        lLinkGeo.translate(0, -0.6, 0);
-        const lowerLink = new THREE.Mesh(lLinkGeo, armorMat);
-        subJoint.add(lowerLink);
+        const lLink = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.1, 1.0, 8), armorMat);
+        lLink.geometry.translate(0, -0.5, 0);
+        midJoint.add(lLink);
 
-        // 정밀 제어 스크립트 연결을 위한 전역 인덱싱 가용화
-        joints[name + '1'] = jointGroup;
-        joints[name + '2'] = subJoint;
+        joints[name + '1'] = rootJoint;
+        joints[name + '2'] = midJoint;
     }
 
-    // 전신 4대 다관절 기구축 링크 배치 완료
-    createLimbs('rArm', -1.5, 0.8);  // 오른팔
-    createLimbs('lArm', 1.5, 0.8);   // 왼팔
-    createLimbs('rLeg', -0.6, -1.2); // 오른다리
-    createLimbs('lLeg', 0.6, -1.2);  // 왼다리
+    // 전신 다관절 서보 토폴로지 구축
+    attachLimb('rArm', -1.3, 0.7);
+    attachLimb('lArm', 1.3, 0.7);
+    attachLimb('rLeg', -0.5, -1.0);
+    attachLimb('lLeg', 0.5, -1.0);
 }
 
-// 3. 실시간 다차원 위상 기하학 모션 제어 연산 루프
-function animateLoop() {
-    requestAnimationFrame(animateLoop);
+function executeRenderLoop() {
+    requestAnimationFrame(executeRenderLoop);
 
-    const time = clock.getElapsedTime() * simulationSpeed;
+    const delta = clock.getElapsedTime() * simulationSpeed;
 
-    // 모션 상태 머신 분기 처리 알고리즘 (삼각함수 위상 왜곡 제어)
+    // 기하 삼각함수 위상 오실레이션 제어 (State Machine)
     if (activeMotion === 'walk') {
-        robotGroup.position.set(0, Math.sin(time * 4) * 0.1, 0); // 상하 출렁임 물리 적용
+        robotGroup.position.y = Math.sin(delta * 4) * 0.08;
         
-        // 역위상(180도) 스윙 제어 알고리즘
-        joints.rArm1.rotation.x = Math.sin(time * 4) * 0.6;
-        joints.rArm2.rotation.x = -Math.abs(Math.sin(time * 4)) * 0.4;
-        joints.lArm1.rotation.x = -Math.sin(time * 4) * 0.6;
-        joints.lArm2.rotation.x = -Math.abs(Math.cos(time * 4)) * 0.4;
+        joints.rArm1.rotation.x = Math.sin(delta * 4) * 0.5;
+        joints.rArm2.rotation.x = -Math.abs(Math.sin(delta * 4)) * 0.3;
+        joints.lArm1.rotation.x = -Math.sin(delta * 4) * 0.5;
+        joints.lArm2.rotation.x = -Math.abs(Math.cos(delta * 4)) * 0.3;
 
-        joints.rLeg1.rotation.x = -Math.sin(time * 4) * 0.5;
-        joints.rLeg2.rotation.x = (Math.sin(time * 4) > 0 ? Math.sin(time * 4) * 0.8 : 0);
-        joints.lLeg1.rotation.x = Math.sin(time * 4) * 0.5;
-        joints.lLeg2.rotation.x = (Math.sin(time * 4) < 0 ? -Math.sin(time * 4) * 0.8 : 0);
+        joints.rLeg1.rotation.x = -Math.sin(delta * 4) * 0.4;
+        joints.rLeg2.rotation.x = Math.max(0, Math.sin(delta * 4) * 0.6);
+        joints.lLeg1.rotation.x = Math.sin(delta * 4) * 0.4;
+        joints.lLeg2.rotation.x = Math.max(0, -Math.sin(delta * 4) * 0.6);
     } 
     else if (activeMotion === 'run') {
-        robotGroup.position.set(0, Math.abs(Math.sin(time * 6)) * 0.3 - 0.2, 0);
+        robotGroup.position.y = Math.abs(Math.sin(delta * 6)) * 0.25 - 0.1;
         
-        joints.rArm1.rotation.x = Math.sin(time * 6) * 1.0;
-        joints.rArm2.rotation.x = -0.5 - Math.abs(Math.sin(time * 6)) * 0.5;
-        joints.lArm1.rotation.x = -Math.sin(time * 6) * 1.0;
-        joints.lArm2.rotation.x = -0.5 - Math.abs(Math.cos(time * 6)) * 0.5;
+        joints.rArm1.rotation.x = Math.sin(delta * 6) * 0.9;
+        joints.rArm2.rotation.x = -0.4 - Math.abs(Math.sin(delta * 6)) * 0.4;
+        joints.lArm1.rotation.x = -Math.sin(delta * 6) * 0.9;
+        joints.lArm2.rotation.x = -0.4 - Math.abs(Math.cos(delta * 6)) * 0.4;
 
-        joints.rLeg1.rotation.x = -Math.sin(time * 6) * 0.9;
-        joints.rLeg2.rotation.x = Math.max(0, Math.sin(time * 6) * 1.4);
-        joints.lLeg1.rotation.x = Math.sin(time * 6) * 0.9;
-        joints.lLeg2.rotation.x = Math.max(0, -Math.sin(time * 6) * 1.4);
+        joints.rLeg1.rotation.x = -Math.sin(delta * 6) * 0.8;
+        joints.rLeg2.rotation.x = Math.max(0, Math.sin(delta * 6) * 1.2);
+        joints.lLeg1.rotation.x = Math.sin(delta * 6) * 0.8;
+        joints.lLeg2.rotation.x = Math.max(0, -Math.sin(delta * 6) * 1.2);
     } 
     else if (activeMotion === 'back') {
-        // 전진 스윙 위상을 반전시킨 역추진 알고리즘
-        joints.rArm1.rotation.x = -Math.sin(time * 3) * 0.4;
-        joints.lArm1.rotation.x = Math.sin(time * 3) * 0.4;
-        joints.rLeg1.rotation.x = Math.sin(time * 3) * 0.4;
-        joints.lLeg1.rotation.x = -Math.sin(time * 3) * 0.4;
-        joints.rArm2.rotation.x = joints.lArm2.rotation.x = -0.2;
-        joints.rLeg2.rotation.x = joints.lLeg2.rotation.x = 0.2;
+        joints.rArm1.rotation.x = -Math.sin(delta * 3) * 0.3;
+        joints.lArm1.rotation.x = Math.sin(delta * 3) * 0.3;
+        joints.rLeg1.rotation.x = Math.sin(delta * 3) * 0.3;
+        joints.lLeg1.rotation.x = -Math.sin(delta * 3) * 0.3;
+        joints.rArm2.rotation.x = joints.lArm2.rotation.x = -0.1;
+        joints.rLeg2.rotation.x = joints.lLeg2.rotation.x = 0.1;
     } 
     else if (activeMotion === 'wave') {
-        // 한쪽 팔 상단 바인딩 오버라이딩 제어
-        joints.rArm1.rotation.z = Math.PI / 1.5 + Math.sin(time * 8) * 0.4;
-        joints.rArm2.rotation.x = -0.2;
+        joints.rArm1.rotation.z = Math.PI / 1.6 + Math.sin(delta * 8) * 0.3;
+        joints.rArm2.rotation.x = -0.1;
         
-        // 나머지 링크 대기 모드 정렬
         joints.lArm1.rotation.set(0,0,0); joints.lArm2.rotation.set(0,0,0);
         joints.rLeg1.rotation.set(0,0,0); joints.rLeg2.rotation.set(0,0,0);
         joints.lLeg1.rotation.set(0,0,0); joints.lLeg2.rotation.set(0,0,0);
     }
 
-    // [핵심 매핑 데이터 연산] 3D 월드 매트릭스로부터 관절 고유 벡터 실시간 추출
-    telemetryDataMapping();
-
+    processTelemetryTracking();
     renderer.render(scene, camera);
 }
 
-// 4. 관절 글로벌 월드 벡터 좌표계 대시보드 변환 매핑
-function telemetryDataMapping() {
-    const targetJoints = {
+function processTelemetryTracking() {
+    const targetMap = {
         'j-rshoulder': joints.rArm1, 'j-relbow': joints.rArm2,
         'j-lshoulder': joints.lArm1, 'j-lelbow': joints.lArm2,
         'j-rhip': joints.rLeg1, 'j-rknee': joints.rLeg2,
         'j-lhip': joints.lLeg1, 'j-lknee': joints.lLeg2
     };
 
-    const worldPos = new THREE.Vector3();
+    const vec = new THREE.Vector3();
     
-    for (const [id, jointObject] of Object.entries(targetJoints)) {
-        if (!jointObject) continue;
-        // 로컬 계층 행렬을 월드 직교 절대 좌표로 변환 연산
-        jointObject.getWorldPosition(worldPos);
-        const dom = document.getElementById(id);
-        if (dom) {
-            // 밀리미터 단위 스케일로 스케일업 보정 출력
-            dom.innerText = `${(worldPos.x * 100).toFixed(0)}, ${(worldPos.y * 100).toFixed(0)}, ${(worldPos.z * 100).toFixed(0)}`;
+    for (const [domId, jointObj] of Object.entries(targetMap)) {
+        if (!jointObj) continue;
+        jointObj.getWorldPosition(vec);
+        const element = document.getElementById(domId);
+        if (element) {
+            // 정밀 mm 스케일 공간 매핑 출력
+            element.innerText = `${(vec.x * 100).toFixed(0)}, ${(vec.y * 100).toFixed(0)}, ${(vec.z * 100).toFixed(0)}`;
         }
     }
 }
 
-// 5. 사용자 편의성(UX)을 극대화한 UI 인터페이스 제어 결합 모듈
-function bindUserInterface() {
-    // 가상 카메라 다이나믹 포커스 매트릭스 전환 이벤트 바인딩
+function bindUIEvents() {
+    // 다이나믹 카메라 포커스 이동 알고리즘 바인딩
     document.querySelectorAll('.view-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
             e.target.classList.add('active');
 
-            const viewType = e.target.getAttribute('data-view');
-            // 각 관절 조인트의 관심 영역(ROI) 뷰포트로 가상 카메라 시점 동적 워핑 연산
-            if (viewType === 'full') camera.position.set(0, 5, 12);
-            else if (viewType === 'r-arm') camera.position.set(-4, 6, 4);
-            else if (viewType === 'l-arm') camera.position.set(4, 6, 4);
-            else if (viewType === 'r-leg') camera.position.set(-2, 1, 5);
-            else if (viewType === 'l-leg') camera.position.set(2, 1, 5);
+            const view = e.target.getAttribute('data-view');
             
-            camera.lookAt(0, 0, 0);
+            // 시점 필터별 카메라 타깃 벡터 공간 제어
+            if (view === 'full') { targetLookAt.set(0,0,0); camRadius = 11; camTheta = Math.PI/3; camPhi = Math.PI/2.5; }
+            else if (view === 'r-arm') { targetLookAt.set(-1.3, 0.7, 0); camRadius = 4; camTheta = -Math.PI/4; camPhi = Math.PI/3; }
+            else if (view === 'l-arm') { targetLookAt.set(1.3, 0.7, 0); camRadius = 4; camTheta = Math.PI/4; camPhi = Math.PI/3; }
+            else if (view === 'r-leg') { targetLookAt.set(-0.5, -1.0, 0); camRadius = 4; camTheta = -Math.PI/6; camPhi = Math.PI/2; }
+            else if (view === 'l-leg') { targetLookAt.set(0.5, -1.0, 0); camRadius = 4; camTheta = Math.PI/6; camPhi = Math.PI/2; }
+            
+            updateCameraPosition();
         });
     });
 
-    // 로봇 구동 상태 전환 머신 셋팅 인터페이스
+    // 모션 상태 설정 바인딩
     document.querySelectorAll('.motion-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             document.querySelectorAll('.motion-btn').forEach(b => b.classList.remove('active'));
@@ -251,15 +233,24 @@ function bindUserInterface() {
         });
     });
 
-    // 속도 변경 슬라이더 인풋 이벤트
     speedSlider.addEventListener('input', (e) => {
         simulationSpeed = parseFloat(e.target.value);
         speedVal.innerText = simulationSpeed.toFixed(1);
     });
 }
 
-function onWindowResize() {
+function handleResize() {
+    if (!container.clientWidth || !container.clientHeight) return;
     camera.aspect = container.clientWidth / container.clientHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(container.clientWidth, container.clientHeight);
+    updateCameraPosition();
 }
+
+// 초기 부팅 안정화 트릭
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(handleResize, 150);
+});
+window.addEventListener('load', () => {
+    setTimeout(handleResize, 300);
+});
