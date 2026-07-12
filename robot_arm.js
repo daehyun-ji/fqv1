@@ -217,24 +217,37 @@ function runHardwareLoop() {
         joints.lArm1.rotation.x = -time * 7; // 왼팔은 역방향 회전 교차 기믹
         joints.rArm2.rotation.x = joints.lArm2.rotation.x = -0.1;
     } 
-    // [문제 7 신규 모션 1] 수직 스쿼트 후 고공 도약 점프
+// [완벽 교정] 수직 스쿼트 후 양팔이 바깥쪽으로 대칭되며 고공 도약하는 점프 알고리즘
     else if (activeMotion === 'jump') {
         let cycle = (time * 2.5) % (Math.PI * 2);
         if (cycle < Math.PI) {
-            // 1단계: 공중 도약 상태
+            // 1단계: 공중 도약 상태 (양팔이 몸 안으로 안 들어가고, 로봇 기준 바깥쪽 대칭으로 시원하게 들려 올라감)
             robotBaseNode.position.y = -0.2 + Math.sin(cycle) * 1.6;
-            joints.rArm1.rotation.z = joints.lArm1.rotation.z = Math.sin(cycle) * 1.2;
+            
+            // rArm1(오른팔)은 -Z 방향(오른쪽 바깥), lArm1(왼팔)은 +Z 방향(왼쪽 바깥)으로 대칭 회전 유도
+            joints.rArm1.rotation.z = -Math.sin(cycle) * 1.0; 
+            joints.lArm1.rotation.z = Math.sin(cycle) * 1.0;
+            
+            // 자연스러운 도약 균형을 위해 앞으로도 살짝 들어 올림 (X축 회전)
+            joints.rArm1.rotation.x = -Math.sin(cycle) * 0.4;
+            joints.lArm1.rotation.x = -Math.sin(cycle) * 0.4;
+
+            // 다리는 가볍게 굽혀 공중 자세 연출
             joints.rLeg1.rotation.x = joints.lLeg1.rotation.x = -0.2;
             joints.rLeg2.rotation.x = joints.lLeg2.rotation.x = 0.4;
         } else {
             // 2단계: 지면 착지 및 쿠션 충격 흡수 감쇠 상태
             let s = Math.sin(cycle);
             robotBaseNode.position.y = -0.2 + s * 0.2;
+            
+            // 착지 시에는 다시 양팔을 내리며 중심을 잡음
+            joints.rArm1.rotation.set(0, 0, 0);
+            joints.lArm1.rotation.set(0, 0, 0);
+            
             joints.rLeg1.rotation.x = joints.lLeg1.rotation.x = -s * 0.6;
             joints.rLeg2.rotation.x = joints.lLeg2.rotation.x = -s * 1.1;
-            joints.rArm1.rotation.x = joints.lArm1.rotation.x = -s * 0.3;
         }
-    } 
+    }
     // [문제 7 신규 모션 2] 후방 아크로바틱 360도 공중 제비 덤블링
     else if (activeMotion === 'flip') {
         let jumpCycle = time * 3;
