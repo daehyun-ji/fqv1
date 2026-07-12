@@ -162,7 +162,7 @@ function handleMouseMove(e) {
     updateInverseKinematics();
 }
 
-// 마우스 이벤트 인터페이스 바인딩
+// [디버깅 핵심] 마우스 이벤트 인터페이스 바인딩
 canvas.addEventListener('mousedown', (e) => {
     handleMouseMove(e);
     canvas.addEventListener('mousemove', handleMouseMove);
@@ -172,7 +172,16 @@ window.addEventListener('mouseup', () => {
     canvas.removeEventListener('mousemove', handleMouseMove);
 });
 
+// 화면 크기가 바뀔 때마다 3D/2D 픽셀 좌표를 재계산
 window.addEventListener('resize', resizeCanvas);
+
+// 깃허브 페이지 렌더링 타이밍 버그 방지 가드코드
+// HTML 문서 구조가 완전히 로드된 후(DOMContentLoaded) 1차 실행, 
+// CSS와 외부 스타일까지 완전히 반영된 후(load) 2차 실행하여 화면이 텅 비는 오류를 완벽히 차단합니다.
+document.addEventListener('DOMContentLoaded', resizeCanvas);
+window.addEventListener('load', () => {
+    setTimeout(resizeCanvas, 300); // 0.3초 여유를 두어 안정적 부팅 완료
+});
 
 // 시스템 최초 리사이징 및 정적 로드 안정화
 setTimeout(resizeCanvas, 100);
