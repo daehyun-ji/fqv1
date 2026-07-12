@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로봇 매니퓰레이터 역기하학(IK) 시각화 시스템</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="robot_arm.js" defer></script>
+</head>
+<body>
+
+<div class="main-content">
+    <h2>🤖 로봇 매니퓰레이터 역기하학(IK) 시뮬레이터</h2>
+    <p>기계공학의 구조학적 링크 모델과 컴퓨터공학의 실시간 삼각함수 기하 제어 알고리즘을 융합한 데이터 시각화 시스템입니다.</p>
+    
+    <div class="canvas-container">
+        <div class="canvas-header">
+            <span style="color: #38bdf8;">⚙️ 2자유도(2-DOF) 평면 로봇 팔 제어 시뮬레이션</span>
+            <span>💡 작업 공간(Workspace) 내 임의의 지점을 마우스로 클릭하거나 드래그하세요.</span>
+        </div>
+        <canvas id="robotCanvas"></canvas>
+    </div>
+</div>
+
+<div class="sidebar">
+    <h3>공학적 연산 대시보드</h3>
+    
+    <div class="dashboard-section">
+        <h4>🎯 목표 좌표 (Target Position)</h4>
+        <div class="data-box">
+            X-Coordinate: <span id="targetX" class="highlight">0.00</span> mm<br>
+            Y-Coordinate: <span id="targetY" class="highlight">0.00</span> mm
+        </div>
+    </div>
+
+    <div class="dashboard-section">
+        <h4>📐 관절 회전각 역산 (Calculated Angles)</h4>
+        <div class="data-box">
+            Joint 1 (θ₁): <span id="angle1" style="color: #f59e0b;">0.0°</span><br>
+            Joint 2 (θ₂): <span id="angle2" style="color: #a855f7;">0.0°</span>
+        </div>
+        <div class="note">※ 역기하학 공식을 통해 End-Effector가 목표점에 도달하기 위한 각 엑추에이터의 정밀 회전각을 산출합니다.</div>
+    </div>
+
+    <div class="dashboard-section">
+        <h4>⚡ 시스템 상태 (System Status)</h4>
+        <div class="data-box">
+            Reachability: <span id="status" class="highlight">정상 작동 (READY)</span><br>
+            Link 1 Length: 160 mm<br>
+            Link 2 Length: 140 mm
+        </div>
+    </div>
+    
+    <div class="dashboard-section">
+        <h4>🛠️ 융합 기술 요약</h4>
+        <div class="data-box" style="color: #cbd5e1; font-size: 12px; font-family: sans-serif;">
+            • <strong>기계공학:</strong> 로봇의 기하학적 기구학 링크 메커니즘 해석<br><br>
+            • <strong>컴퓨터공학:</strong> 코사인 제2법칙 알고리즘 기반 실시간 좌표 변환 및 스크린 픽셀 동적 매핑 기술
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
