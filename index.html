@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D 다관절 휴머노이드 로봇 역동역학 및 모션 제어 시스템</title>
+    <title>3D 휴머노이드 시뮬레이션 시스템</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="robot_arm.js" defer></script>
@@ -21,15 +21,15 @@
             <button class="btn view-btn" data-view="l-leg">🦿 왼다리 (Left Leg)</button>
         </div>
 
-        <h3>🏃 모션 상태 제어 (State)</h3>
+        <h3>🏃 모션 상태 제어</h3>
         <div class="control-group">
-            <button class="btn motion-btn active" data-motion="walk">🚶 앞으로 걷기 (Walk)</button>
-            <button class="btn motion-btn" data-motion="run">🏃 앞으로 뛰기 (Run)</button>
-            <button class="btn motion-btn" data-motion="back">🚶 뒤로 가기 (Backward)</button>
-            <button class="btn motion-btn" data-motion="wave">👋 팔 휘두르기 (Wave)</button>
+            <button class="btn motion-btn active" data-motion="walk">🚶 앞으로 걷기</button>
+            <button class="btn motion-btn" data-motion="run">🏃 앞으로 뛰기</button>
+            <button class="btn motion-btn" data-motion="back">🚶 뒤로 가기</button>
+            <button class="btn motion-btn" data-motion="wave">👋 팔 휘두르기</button>
         </div>
 
-        <h3>⚡ 구동 속도 시뮬레이션 (Speed)</h3>
+        <h3>⚡ 구동 속도 시뮬레이션</h3>
         <div class="slider-group">
             <label for="speedSlider">모터 구동 주파수: <span id="speedVal" class="text-highlight">1.0</span>x</label>
             <input type="range" id="speedSlider" min="0.0" max="3.0" step="0.1" value="1.0">
@@ -38,38 +38,38 @@
 
     <div class="main-viewport">
         <div class="viewport-header">
-            <h2>🔮 3D HUMANOID ROBOT KINEMATICS CORE</h2>
+            <h2>🔮 3D HUMANOID ROBOT KINEMATICS</h2>
             <div class="badge">ONLINE</div>
         </div>
         <div id="canvas3dContainer"></div>
         <div class="viewport-footer">
-            <span>💡 3D 공간을 <strong>마우스 드래그</strong>하면 360도 원하는 방향과 각도에서 기계를 관찰할 수 있습니다.</span>
+            <span>💡 3D 공간을 <strong>마우스 드래그</strong>하면 원하는 방향에서 관찰이 가능합니다.</span>
         </div>
     </div>
 
     <div class="panel right-panel">
-        <h3>📊 관절별 3D 좌표 계측 (Telemetry)</h3>
+        <h3>📊 실시간 3D 좌표 계측 (mm)</h3>
         
         <div class="telemetry-box">
-            <h4>[어깨 및 팔꿈치 조인트 복합체]</h4>
-            <div class="data-row">R-Shoulder (X,Y,Z): <span id="j-rshoulder" class="text-orange">0, 0, 0</span></div>
-            <div class="data-row">R-Elbow (X,Y,Z): <span id="j-relbow" class="text-orange">0, 0, 0</span></div>
-            <div class="data-row">L-Shoulder (X,Y,Z): <span id="j-lshoulder" class="text-purple">0, 0, 0</span></div>
-            <div class="data-row">L-Elbow (X,Y,Z): <span id="j-lelbow" class="text-purple">0, 0, 0</span></div>
+            <h4>[상지 관절 복합체]</h4>
+            <div class="data-row">R-Shoulder: <span id="j-rshoulder" class="text-orange">0, 0, 0</span></div>
+            <div class="data-row">R-Elbow: <span id="j-relbow" class="text-orange">0, 0, 0</span></div>
+            <div class="data-row">L-Shoulder: <span id="j-lshoulder" class="text-purple">0, 0, 0</span></div>
+            <div class="data-row">L-Elbow: <span id="j-lelbow" class="text-purple">0, 0, 0</span></div>
         </div>
 
         <div class="telemetry-box">
-            <h4>[골반 및 고관절 하퇴 복합체]</h4>
-            <div class="data-row">R-Hip (X,Y,Z): <span id="j-rhip" class="text-green">0, 0, 0</span></div>
-            <div class="data-row">R-Knee (X,Y,Z): <span id="j-rknee" class="text-green">0, 0, 0</span></div>
-            <div class="data-row">L-Hip (X,Y,Z): <span id="j-lhip" class="text-blue">0, 0, 0</span></div>
-            <div class="data-row">L-Knee (X,Y,Z): <span id="j-lknee" class="text-blue">0, 0, 0</span></div>
+            <h4>[하지 관절 복합체]</h4>
+            <div class="data-row">R-Hip: <span id="j-rhip" class="text-green">0, 0, 0</span></div>
+            <div class="data-row">R-Knee: <span id="j-rknee" class="text-green">0, 0, 0</span></div>
+            <div class="data-row">L-Hip: <span id="j-lhip" class="text-blue">0, 0, 0</span></div>
+            <div class="data-row">L-Knee: <span id="j-lknee" class="text-blue">0, 0, 0</span></div>
         </div>
 
         <div class="telemetry-box">
-            <h4>📈 기구학 연산 상태 (Matrix)</h4>
-            <div class="data-row">계산주기: <span class="text-green">60Hz 실시간 매핑</span></div>
-            <div class="data-row">연산에러코드: <span class="text-green">0x00 (STABLE)</span></div>
+            <h4>📈 시스템 제어 상태</h4>
+            <div class="data-row">계산 주기: <span class="text-green">60Hz Matrix</span></div>
+            <div class="data-row">에러 코드: <span class="text-green">0x00 (READY)</span></div>
         </div>
     </div>
 </div>
@@ -77,23 +77,23 @@
 <div class="scroll-detail-section">
     <div class="detail-container">
         <hr class="section-divider">
-        <h2>🛠️ 생기부 심화 기재용 학술 심층 탐구 대시보드</h2>
+        <h2>🛠️ 공학적 다관절 링크 메커니즘 심화 해석 보고서</h2>
         
         <div class="grid-layout">
             <div class="card">
-                <h3>1. 3차원 동적 역기하학(Inverse Kinematics)과 균형 제어</h3>
-                <p>본 시스템은 다관절 휴머노이드 로봇이 걷거나 뛰는 동적 상태(Dynamic State)에서 전신의 질량 중심(CoM, Center of Mass)을 보존하기 위한 기하학적 매트릭스 변환을 다룹니다. 각 링크에 적용된 고차원 삼각함수 파라미터는 지면과의 반발력을 분산시키는 물리적 감쇠 계수를 수치해석적으로 연산합니다.</p>
+                <h3>1. 고차원 3D 공간 벡터 변환 연구</h3>
+                <p>본 장비 시뮬레이션은 휴머노이드의 동적 질량 중심(CoM) 이동에 따른 기하학적 매트릭스 변환을 모델링합니다. 각 관절 노드는 시간에 따른 위상 삼각함수 파라미터(Phase Angular Parameter)를 실시간으로 인덱싱하여 물리적 댐핑 감쇠 효과를 도출해냅니다.</p>
             </div>
             
             <div class="card">
-                <h3>2. 컴퓨터공학(SW)과 기계공학(HW)의 융합 아키텍처</h3>
-                <p>기계공학적 고정 구조체(Rigid Body Mechanical Link) 데이터를 웹 표준 그래픽 가속 인터페이스인 <strong>WebGL(Three.js)</strong> 컨텍스트에 바인딩했습니다. 프레임 연산 주기마다 컴퓨터의 GPU를 활용한 행렬곱 연산을 수행하여 초당 60회 이상 인간형 로봇의 다차원 자유도(DoF) 관절 벡터를 실시간 디스플레이 스크린에 동기화하는 임베디드 시각화 시스템을 구축했습니다.</p>
+                <h3>2. 컴퓨터공학 아키텍처 및 GPU 가속</h3>
+                <p>로봇의 강체 링크 데이터를 웹 표준 그래픽 가속 인터페이스인 <strong>WebGL 컨텍스트</strong>에 다이렉트로 바인딩시켰습니다. 스크립트 엔진의 이벤트 라이프사이클을 최적화하여 60fps 이상의 주기적인 행렬 연산을 보장하며, 다차원 자유도(DoF) 좌표 공간을 정밀 화면에 동기화합니다.</p>
             </div>
         </div>
 
         <div class="card full-card">
-            <h3>📝 융합 기하학 탐구 요약문 (A4 출력 및 세특 기재용)</h3>
-            <p>다관절 로봇 매니퓰레이터 기구학 분석을 고도화하여 3차원 공간상에서 인간형 구조체의 전신 관절 링크 메커니즘을 동적으로 시각화하는 풀스택 소프트웨어를 설계함. 가상 카메라 뷰포트 행렬 연산을 모듈화하여 특정 파트(상하선 관절 복합체)를 독립적으로 모니터링하는 인터페이스를 구현하였으며, 가속도 슬라이더에 따른 가상 서보모터 주파수 변동성을 실시간 관절 공간 벡터 좌표($X, Y, Z$) 데이터로 정밀 변환해냄으로써 SW와 HW를 융합한 로봇 제어 공학적 역량을 완벽히 증명함.</p>
+            <h3>📝 학생부종합전형 세특 기재용 탐구 요약 서머리</h3>
+            <p>다관절 로봇 기구학 연산을 고도화하여 3차원 공간상에서 인간형 멀티 링크 구조체의 동적 모션을 제어하는 소프트웨어 시스템을 자가 설계함. 마우스 드래그 좌표계 기반의 구면 직교 행렬 제어 알고리즘을 하드코딩하여 카메라 뷰포트 전환 모듈을 완성함. 모터 구동 주파수 변화에 따른 다차원 관절 노드의 월드 좌표($X, Y, Z$) 데이터를 밀리미터 단위로 실시간 추출해냄으로써 하드웨어 메커니즘과 소프트웨어 데이터 엔지니어링 역량을 융합 입증함.</p>
         </div>
     </div>
 </div>
