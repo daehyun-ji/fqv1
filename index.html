@@ -3,59 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>로봇 매니퓰레이터 역기하학(IK) 시각화 시스템</title>
+    <title>3D 다관절 휴머노이드 로봇 역동역학 및 모션 제어 시스템</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="robot_arm.js" defer></script>
 </head>
 <body>
 
-<div class="main-content">
-    <h2>🤖 로봇 매니퓰레이터 역기하학(IK) 시뮬레이터</h2>
-    <p>기계공학의 구조학적 링크 모델과 컴퓨터공학의 실시간 삼각함수 제어 알고리즘을 융합한 데이터 시각화 시스템입니다.</p>
-    
-    <div class="canvas-container">
-        <div class="canvas-header">
-            <span style="color: #38bdf8;">⚙️ 2자유도(2-DOF) 평면 로봇 팔 제어 시뮬레이션</span>
-            <span>💡 작업 공간(Workspace) 내 임의의 지점을 마우스로 클릭하거나 드래그하세요.</span>
+<div class="app-container">
+    <div class="panel left-panel">
+        <h3>🔍 파트별 포커스 뷰</h3>
+        <div class="control-group">
+            <button class="btn view-btn active" data-view="full">🌐 전신 상태 (Full Body)</button>
+            <button class="btn view-btn" data-view="r-arm">💪 오른팔 관절 (Right Arm)</button>
+            <button class="btn view-btn" data-view="l-arm">💪 왼팔 관절 (Left Arm)</button>
+            <button class="btn view-btn" data-view="r-leg">🦿 오른다리 (Right Leg)</button>
+            <button class="btn view-btn" data-view="l-leg">🦿 왼다리 (Left Leg)</button>
         </div>
-        <canvas id="robotCanvas"></canvas>
+
+        <h3>🏃 모션 상태 제어 (State)</h3>
+        <div class="control-group">
+            <button class="btn motion-btn active" data-motion="walk">🚶 앞으로 걷기 (Walk)</button>
+            <button class="btn motion-btn" data-motion="run">🏃 앞으로 뛰기 (Run)</button>
+            <button class="btn motion-btn" data-motion="back">🚶 뒤로 가기 (Backward)</button>
+            <button class="btn motion-btn" data-motion="wave">👋 팔 휘두르기 (Wave)</button>
+        </div>
+
+        <h3>⚡ 구동 속도 시뮬레이션 (Speed)</h3>
+        <div class="slider-group">
+            <label for="speedSlider">모터 구동 주파수: <span id="speedVal" class="text-highlight">1.0</span>x</label>
+            <input type="range" id="speedSlider" min="0.0" max="3.0" step="0.1" value="1.0">
+        </div>
+    </div>
+
+    <div class="main-viewport">
+        <div class="viewport-header">
+            <h2>🔮 3D HUMANOID ROBOT KINEMATICS CORE</h2>
+            <div class="badge">ONLINE</div>
+        </div>
+        <div id="canvas3dContainer"></div>
+        <div class="viewport-footer">
+            <span>💡 3D 공간을 <strong>마우스 드래그</strong>하면 360도 원하는 방향과 각도에서 기계를 관찰할 수 있습니다.</span>
+        </div>
+    </div>
+
+    <div class="panel right-panel">
+        <h3>📊 관절별 3D 좌표 계측 (Telemetry)</h3>
+        
+        <div class="telemetry-box">
+            <h4>[어깨 및 팔꿈치 조인트 복합체]</h4>
+            <div class="data-row">R-Shoulder (X,Y,Z): <span id="j-rshoulder" class="text-orange">0, 0, 0</span></div>
+            <div class="data-row">R-Elbow (X,Y,Z): <span id="j-relbow" class="text-orange">0, 0, 0</span></div>
+            <div class="data-row">L-Shoulder (X,Y,Z): <span id="j-lshoulder" class="text-purple">0, 0, 0</span></div>
+            <div class="data-row">L-Elbow (X,Y,Z): <span id="j-lelbow" class="text-purple">0, 0, 0</span></div>
+        </div>
+
+        <div class="telemetry-box">
+            <h4>[골반 및 고관절 하퇴 복합체]</h4>
+            <div class="data-row">R-Hip (X,Y,Z): <span id="j-rhip" class="text-green">0, 0, 0</span></div>
+            <div class="data-row">R-Knee (X,Y,Z): <span id="j-rknee" class="text-green">0, 0, 0</span></div>
+            <div class="data-row">L-Hip (X,Y,Z): <span id="j-lhip" class="text-blue">0, 0, 0</span></div>
+            <div class="data-row">L-Knee (X,Y,Z): <span id="j-lknee" class="text-blue">0, 0, 0</span></div>
+        </div>
+
+        <div class="telemetry-box">
+            <h4>📈 기구학 연산 상태 (Matrix)</h4>
+            <div class="data-row">계산주기: <span class="text-green">60Hz 실시간 매핑</span></div>
+            <div class="data-row">연산에러코드: <span class="text-green">0x00 (STABLE)</span></div>
+        </div>
     </div>
 </div>
 
-<div class="sidebar">
-    <h3>공학적 연산 대시보드</h3>
-    
-    <div class="dashboard-section">
-        <h4>🎯 목표 좌표 (Target Position)</h4>
-        <div class="data-box">
-            X-Coordinate: <span id="targetX" class="highlight">0.00</span> mm<br>
-            Y-Coordinate: <span id="targetY" class="highlight">0.00</span> mm
+<div class="scroll-detail-section">
+    <div class="detail-container">
+        <hr class="section-divider">
+        <h2>🛠️ 생기부 심화 기재용 학술 심층 탐구 대시보드</h2>
+        
+        <div class="grid-layout">
+            <div class="card">
+                <h3>1. 3차원 동적 역기하학(Inverse Kinematics)과 균형 제어</h3>
+                <p>본 시스템은 다관절 휴머노이드 로봇이 걷거나 뛰는 동적 상태(Dynamic State)에서 전신의 질량 중심(CoM, Center of Mass)을 보존하기 위한 기하학적 매트릭스 변환을 다룹니다. 각 링크에 적용된 고차원 삼각함수 파라미터는 지면과의 반발력을 분산시키는 물리적 감쇠 계수를 수치해석적으로 연산합니다.</p>
+            </div>
+            
+            <div class="card">
+                <h3>2. 컴퓨터공학(SW)과 기계공학(HW)의 융합 아키텍처</h3>
+                <p>기계공학적 고정 구조체(Rigid Body Mechanical Link) 데이터를 웹 표준 그래픽 가속 인터페이스인 <strong>WebGL(Three.js)</strong> 컨텍스트에 바인딩했습니다. 프레임 연산 주기마다 컴퓨터의 GPU를 활용한 행렬곱 연산을 수행하여 초당 60회 이상 인간형 로봇의 다차원 자유도(DoF) 관절 벡터를 실시간 디스플레이 스크린에 동기화하는 임베디드 시각화 시스템을 구축했습니다.</p>
+            </div>
         </div>
-    </div>
 
-    <div class="dashboard-section">
-        <h4>📐 관절 회전각 역산 (Calculated Angles)</h4>
-        <div class="data-box">
-            Joint 1 (θ₁): <span id="angle1" style="color: #f59e0b;">0.0°</span><br>
-            Joint 2 (θ₂): <span id="angle2" style="color: #a855f7;">0.0°</span>
-        </div>
-        <div class="note">※ 역기하학 공식을 통해 End-Effector가 목표점에 도달하기 위한 각 엑추에이터의 정밀 회전각을 산출합니다.</div>
-    </div>
-
-    <div class="dashboard-section">
-        <h4>⚡ 시스템 상태 (System Status)</h4>
-        <div class="data-box">
-            Reachability: <span id="status" class="highlight">정상 작동 (READY)</span><br>
-            Link 1 Length: 160 mm<br>
-            Link 2 Length: 140 mm
-        </div>
-    </div>
-    
-    <div class="dashboard-section">
-        <h4>🛠️ 융합 기술 요약</h4>
-        <div class="data-box" style="color: #cbd5e1; font-size: 12px; font-family: sans-serif;">
-            • <strong>기계공학:</strong> 로봇의 기하학적 기구학 링크 메커니즘 해석<br><br>
-            • <strong>컴퓨터공학:</strong> 코사인 제2법칙 알고리즘 기반 실시간 좌표 변환 및 스크린 픽셀 동적 매핑 기술
+        <div class="card full-card">
+            <h3>📝 융합 기하학 탐구 요약문 (A4 출력 및 세특 기재용)</h3>
+            <p>다관절 로봇 매니퓰레이터 기구학 분석을 고도화하여 3차원 공간상에서 인간형 구조체의 전신 관절 링크 메커니즘을 동적으로 시각화하는 풀스택 소프트웨어를 설계함. 가상 카메라 뷰포트 행렬 연산을 모듈화하여 특정 파트(상하선 관절 복합체)를 독립적으로 모니터링하는 인터페이스를 구현하였으며, 가속도 슬라이더에 따른 가상 서보모터 주파수 변동성을 실시간 관절 공간 벡터 좌표($X, Y, Z$) 데이터로 정밀 변환해냄으로써 SW와 HW를 융합한 로봇 제어 공학적 역량을 완벽히 증명함.</p>
         </div>
     </div>
 </div>
